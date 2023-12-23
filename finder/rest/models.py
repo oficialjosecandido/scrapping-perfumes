@@ -13,10 +13,12 @@ class Perfume(models.Model):
     brand = models.CharField(max_length=300)
     model = models.CharField(max_length=300)
     year = models.CharField(max_length=4)
-    top_notes = models.TextField(null=True, blank=True)
-    middle_notes = models.TextField(null=True, blank=True)
-    base_notes = models.TextField(null=True, blank=True)
-    olfactory_family = models.TextField(null=True, blank=True)
+    description = models.TextField(null=True, blank=True)
+    image = models.CharField(max_length=3000, null=True, blank=True)
+    top_notes = models.CharField(max_length=3000, null=True, blank=True)
+    middle_notes = models.CharField(max_length=3000, null=True, blank=True)
+    base_notes = models.CharField(max_length=3000, null=True, blank=True)
+    olfactory_family = models.CharField(max_length=3000, null=True, blank=True)
     accords = models.TextField(null=True, blank=True)
 
     love = models.IntegerField(default=0)
@@ -40,13 +42,14 @@ class Perfume(models.Model):
 
     EAN = models.IntegerField(default=0)
 
-    fragrantica_url = models.TextField(null=True, blank=True)
-    sephora_uk_url = models.TextField(null=True, blank=True)
-    perfumesclub_uk_url = models.TextField(null=True, blank=True)
+    fragrantica_url = models.CharField(max_length=3000, null=True, blank=True)
+    sephora_uk_url = models.CharField(max_length=3000, null=True, blank=True)
+    perfumesclub_uk_url = models.CharField(max_length=3000, null=True, blank=True)
 
+    updated = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.model} de {self.brand} tem {self.views} views"
+        return f"{self.model} from {self.brand} has {self.views} views and it was updated at {self.updated.strftime('%Y-%m-%d %H:%M:%S')}"
     
 
 class Brand(models.Model):

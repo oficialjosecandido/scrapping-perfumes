@@ -18,15 +18,21 @@ from rest_framework.response import Response
 from .viewprices import getProductPrices
 from .viewaccords import getProductAccords, getOlfactoryFamily, getFragranceNotes, getFragranceInfo
 from .viewbrand import extract_brands, extract_perfumes
+from .viewdetails import extract_one_details
 
 baseUrl = 'https://www.fragrantica.com/'
 headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
 
 # views for brands
 def get_brands(request):
-    response = extract_perfumes(request)
+    response = extract_brands(request)
     return response
 
+
+# views for details
+def getDetails(request):
+    response = extract_one_details(request)
+    return response
 
 def getPrices(request, id):
     print(id)

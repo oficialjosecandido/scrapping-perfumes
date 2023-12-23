@@ -2,12 +2,16 @@ import requests
 from bs4 import BeautifulSoup
 from rest_framework.decorators import api_view
 from django.http import JsonResponse, HttpResponseBadRequest
-from rest.models import Brand
+from rest.models import *
 import re
 from django.forms.models import model_to_dict
 import html5lib
 from rest_framework.response import Response
+
+from .viewdetails import extract_one_details
+
 from datetime import datetime
+import time
 
 baseUrl = 'https://www.fragrantica.com/'
 headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
@@ -23,7 +27,9 @@ def createBrandList():
 @api_view(['GET'])
 def extract_brands(request):
     createBrandList()
-
+    extract_perfumes()
+    extract_one_details()
+    
     try:
         r = requests.get('https://www.fragrantica.com/designers', headers=headers)
         r.raise_for_status() 
@@ -34,16 +40,15 @@ def extract_brands(request):
         for item in designers:
             for link in item.find_all('a', href=True):
                 url = baseUrl + link['href']
+                url = url.replace('//designers', '/designers')
+                brand_name_tag = item.find('a')
+                brand_name = brand_name_tag.text.strip() if brand_name_tag else None
+                
+                # update the brands list
                 if url not in brandsList:
                     image_tag = item.find('img')
                     image_link = image_tag.get('src') if image_tag else None
-
-                    brand_name_tag = item.find('a')
-                    brand_name = brand_name_tag.text.strip() if brand_name_tag else None
-
-                    url = url.replace('//designers', '/designers')
                     
-
                     # print('brand created....', brand_name, url, image_link)
 
                     print('appending new brand....', item)
@@ -57,21 +62,32 @@ def extract_brands(request):
                 else:
                     print('brand list is updated')
 
+                # update the perfume's list on each brand
+                # extract_perfumes(url, brand_name)
+
+        
         return Response({'brands': brandsList})
     except requests.exceptions.RequestException as e:
         return Response({'error': str(e)})
     
 
-def extract_perfumes(request):
+def extract_perfumes():
+
     perfumeList = []
-    url = 'https://www.fragrantica.com/designers/Ariana-Grande.html'
+    url = 'https://www.fragrantica.com/designers/Chanel.html'
     try:
         r = requests.get(url, headers=headers)
         r.raise_for_status() 
         soup = BeautifulSoup(r.content, 'html.parser')
 
-        perfumes = soup.find_all('div', class_="px1-box-shadow")
-        for item in perfumes:
+        chanel = Perfume.objects.filter(brand='Chanel')
+
+        skuList = []
+        for perfume in chanel:
+            skuList.append(perfume.fragrantica_url)
+
+        perfumeDIV = soup.find_all('div', class_="px1-box-shadow")
+        for item in perfumeDIV:
 
             link = item.find('a', href=True)
             perfume_name_tag = item.find('a', href=True)
@@ -81,6 +97,19 @@ def extract_perfumes(request):
             sku = sku.replace('//perfume', '/perfume')
 
             print('perfume....', perfume_name, sku)
+            perfumeList.append(perfume_name)
+
+            if sku not in skuList:
+                print('storing a new perfume....', perfume_name, sku)
+                Perfume.objects.create(
+                        fragrantica_url=sku,
+                        model = 'Chanel ' + perfume_name,
+                        updated = datetime.now()
+                )
+
+            # Wait before the next iteration
+            # time.sleep(3600)  # 3600 seconds = 1 hour
+            time.sleep(60)  # 600 seconds = 10mins 
         
         return Response({'perfumes': perfumeList})
     except requests.exceptions.RequestException as e:
