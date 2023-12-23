@@ -47,3 +47,14 @@ class Perfume(models.Model):
 
     def __str__(self):
         return f"{self.model} de {self.brand} tem {self.views} views"
+    
+
+class Brand(models.Model):
+    name = models.CharField(max_length=3000, null=True, blank=True)
+    logo = models.CharField(max_length=3000, null=True, blank=True)
+    description = models.TextField(null=True, blank=True)
+    fragrantica_url = models.CharField(max_length=3000, null=True, blank=True)
+    updated = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.name} was updated at {self.updated.strftime('%Y-%m-%d %H:%M:%S')}"
