@@ -7,7 +7,6 @@ class CustomUser(AbstractUser):
     class Meta:
         permissions = []
 
-
 class Perfume(models.Model):
     identifier = models.CharField(max_length=300)
     brand = models.CharField(max_length=300)
@@ -49,9 +48,8 @@ class Perfume(models.Model):
     updated = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.model} from {self.brand} has {self.views} views and it was updated at {self.updated.strftime('%Y-%m-%d %H:%M:%S')}"
+        return f"{self.model} from {self.brand} from {self.year} views and it was updated at {self.updated.strftime('%Y-%m-%d %H:%M:%S')}"
     
-
 class Brand(models.Model):
     name = models.CharField(max_length=3000, null=True, blank=True)
     logo = models.CharField(max_length=3000, null=True, blank=True)

@@ -6,7 +6,9 @@ from .views import views
 urlpatterns = [
     
     path('brands', views.get_brands, name='brands'),
-    path('get_details', views.getDetails, name='get_details'),
+    path('notino', views.get_notino, name="sephora")
+    # path('get_details', views.getDetails, name='get_details'),
+    # path('get_reviews', views.getReviews, name='get_reviews'),
 
     # path('teste/', views.testAPI),
     # other paths...

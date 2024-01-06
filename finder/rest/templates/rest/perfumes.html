@@ -1,0 +1,21 @@
+<!-- output_template.html -->
+
+<html>
+<head>
+    <title>Scraping Output</title>
+</head>
+<body>
+    <h1>Scraping Output</h1>
+
+    <h2>Error:</h2>
+    {% if error %}
+        <p>{{ error }}</p>
+    {% endif %}
+
+    <h2>Perfume Details:</h2>
+    
+    {% if perfume_details %}
+    <li><strong>Creation Message:</strong> {{ perfume_details.creation_message }}</li>
+    {% endif %}
+</body>
+</html>
