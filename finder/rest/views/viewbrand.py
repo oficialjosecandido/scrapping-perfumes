@@ -12,6 +12,7 @@ from django.utils import timezone
 from django.shortcuts import render
 from django.core.mail import send_mail
 from django.conf import settings
+from django.db.models import Count
 
 
 baseUrl = 'https://www.fragrantica.com/'
@@ -28,6 +29,8 @@ def createBrandList():
 @api_view(['GET'])
 def extract_brands(request):
     createBrandList()
+    remove_duplicates()
+    remove_empty()
     get_perfumes_brand(request)
     
     try:
@@ -64,7 +67,6 @@ def extract_brands(request):
         return Response({'brands': brandsList})
     except requests.exceptions.RequestException as e:
         return Response({'error': str(e)})
-
 
 def extract_one_details(request, sku):
     
@@ -251,7 +253,29 @@ def get_perfumes_brand(request):
                     print(f"{perfume_name} already in extracted.")
                 else:
                     extract_one_details(request, sku)
-                    time.sleep(30)  # 600 seconds = 10mins
+                    time.sleep(300)  # 600 seconds = 10mins
             return Response({'perfumes': sku_list})
         except requests.exceptions.RequestException as e:
             return Response({'error': str(e)})
+        
+
+def remove_duplicates():
+    
+    duplicate_names = Perfume.objects.values('model').annotate(name_count=Count('model')).filter(name_count__gt=1)
+
+    # Iterate over duplicate names
+    for duplicate in duplicate_names:
+        name = duplicate['model']
+        
+        # Get all Perfume objects with the duplicate name
+        duplicate_perfumes = Perfume.objects.filter(model=name)
+        
+        # Keep one instance and delete the rest
+        first_perfume = duplicate_perfumes.first()
+        duplicate_perfumes.exclude(pk=first_perfume.pk).delete()
+
+
+def remove_empty():
+    for perfume in Perfume.objects.all():
+        if perfume.model == '':
+            perfume.delete()

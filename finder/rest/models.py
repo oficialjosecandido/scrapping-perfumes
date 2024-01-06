@@ -58,4 +58,16 @@ class Brand(models.Model):
     updated = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.name} was updated at"
+        return f"{self.name} was updated at {self.updated.strftime('%Y-%m-%d %H:%M:%S')}"
+    
+
+class PerfumeSize(models.Model):
+    perfume = models.ForeignKey(Perfume, on_delete=models.CASCADE, related_name='sizes')
+    size = models.CharField(max_length=100, null=True, blank=True)  
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    store_name = models.CharField(max_length=1000, null=True, blank=True)
+    store_url = models.CharField(max_length=100, null=True, blank=True)
+    ean = models.IntegerField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.perfume.model} at {self.store_name} - Price: {self.price}, EAN: {self.ean}"
