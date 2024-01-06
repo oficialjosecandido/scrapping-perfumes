@@ -28,6 +28,7 @@ def createBrandList():
 @api_view(['GET'])
 def extract_brands(request):
     createBrandList()
+    get_perfumes_brand(request)
     
     try:
         r = requests.get('https://www.fragrantica.com/designers', headers=headers)
@@ -48,8 +49,6 @@ def extract_brands(request):
                     image_tag = item.find('img')
                     image_link = image_tag.get('src') if image_tag else None
                     
-                    # print('brand created....', brand_name, url, image_link)
-
                     print('appending new brand....', item)
                     Brand.objects.create(
                         fragrantica_url=url,
@@ -59,76 +58,29 @@ def extract_brands(request):
                     )
                     brandsList.append(url)
                 else:
-                    print('brand list is updated')
-
-                # update the perfume's list on each brand
-                extract_perfumes(request, url)
+                    print(brand_name, 'is updated successfully')
 
         
         return Response({'brands': brandsList})
     except requests.exceptions.RequestException as e:
         return Response({'error': str(e)})
 
-def extract_perfumes(request, url):
-
-    perfumeList = []    
-    try:
-        r = requests.get(url, headers=headers)
-        r.raise_for_status() 
-        soup = BeautifulSoup(r.content, 'html.parser')
-
-        brand_perfumes = Perfume.objects.filter(brand=url)
-
-        sku_list = [perfume.fragrantica_url for perfume in brand_perfumes]
-
-        perfumeDIV = soup.find_all('div', class_="px1-box-shadow")
-        for item in perfumeDIV:
-
-            link = item.find('a', href=True)
-            perfume_name_tag = item.find('a', href=True)
-            perfume_name = perfume_name_tag.text.strip() if perfume_name_tag else None
-
-            sku = baseUrl + link['href']
-            sku = sku.replace('//perfume', '/perfume')
-
-            print('perfume....', perfume_name, sku)
-            perfumeList.append(perfume_name)
-
-            existing_perfume = Perfume.objects.filter(fragrantica_url=sku).first()
-
-            if not existing_perfume or not existing_perfume.brand:
-                if sku not in sku_list:
-                    print('storing a new perfume....', perfume_name, sku)
-                    Perfume.objects.create(
-                        fragrantica_url=sku,
-                        model=perfume_name,
-                        updated=datetime.now()
-                    )
-                    extract_one_details(request, sku)
-
-                time.sleep(300)  # 600 seconds = 10mins
-
-            
-        
-        return Response({'perfumes': perfumeList})
-    except requests.exceptions.RequestException as e:
-        return Response({'error': str(e)})    
 
 def extract_one_details(request, sku):
-    # sku = 'https://www.fragrantica.com/perfume/Chanel/Antaeus-616.html'
     
     skuList = []
-
-    product = Perfume.objects.filter(fragrantica_url=sku)
-
-    if len(product)>1:
-        return render(request, 'rest/perfumes.html')
-
-
+    print('extrancting info from this url...', sku)
     try:
         r = requests.get(sku, headers=headers)
         r.raise_for_status() 
         soup = BeautifulSoup(r.content, 'html.parser')
+        
+        # Create a Product
+        product = Perfume.objects.create(
+                    fragrantica_url=sku,
+                    updated=datetime.now()
+                )
+
 
         # retrieve basic product info
         description_div = soup.find('div', {'itemprop': 'description'})
@@ -204,7 +156,7 @@ def extract_one_details(request, sku):
             perfume_dict['creation_message'] = message
 
         return render(request, 'rest/perfumes.html', {'perfume_details': perfume_dict, 'messages': messages})
-         
+        
     except requests.exceptions.RequestException as e:
         return Response({'error': str(e)})
     
@@ -274,3 +226,32 @@ def search_olfactory_family(description_text):
             return family
     return None
 
+def get_perfumes_brand(request):
+
+    for designer in Brand.objects.all():
+        try:
+            r = requests.get(designer.fragrantica_url, headers=headers)
+            r.raise_for_status() 
+            soup = BeautifulSoup(r.content, 'html.parser')
+
+            brand_perfumes = Perfume.objects.filter(brand=designer.name)
+            sku_list = [perfume.fragrantica_url for perfume in brand_perfumes]
+
+            perfumeDIV = soup.find_all('div', class_="px1-box-shadow")
+            for item in perfumeDIV:
+
+                link = item.find('a', href=True)
+                perfume_name_tag = item.find('a', href=True)
+                perfume_name = perfume_name_tag.text.strip() if perfume_name_tag else None
+
+                sku = baseUrl + link['href']
+                sku = sku.replace('//perfume', '/perfume')
+
+                if any(sku == s for s in sku_list):
+                    print(f"{perfume_name} already in extracted.")
+                else:
+                    extract_one_details(request, sku)
+                    time.sleep(30)  # 600 seconds = 10mins
+            return Response({'perfumes': sku_list})
+        except requests.exceptions.RequestException as e:
+            return Response({'error': str(e)})

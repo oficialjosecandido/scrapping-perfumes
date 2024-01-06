@@ -15,7 +15,7 @@ from django.forms.models import model_to_dict
 from rest_framework.response import Response
 
 from .viewprices import *
-from .viewbrand import extract_brands, extract_perfumes
+from .viewbrand import *
 from .viewdetails import *
 
 

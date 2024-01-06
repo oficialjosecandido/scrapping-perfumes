@@ -58,4 +58,4 @@ class Brand(models.Model):
     updated = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.name} was updated at {self.updated.strftime('%Y-%m-%d %H:%M:%S')}"
+        return f"{self.name} was updated at"
