@@ -13,6 +13,7 @@ from django.shortcuts import render
 from django.core.mail import send_mail
 from django.conf import settings
 from django.db.models import Count
+from selenium import webdriver
 
 
 baseUrl = 'https://www.fragrantica.com/'
@@ -22,87 +23,55 @@ brandsList = []
 brands = Brand.objects.all()
 
 
-def createBrandList():
-    for brand in brands:
-        brandsList.append(brand.fragrantica_url)
-
 @api_view(['GET'])
 def extract_brands(request):
-    createBrandList()
-    remove_duplicates()
-    remove_empty()
+    check_perfumes()
+    # remove_duplicates()
+    # remove_empty()
+    # get_similar_and_nez()
     get_perfumes_brand(request)
-    
-    try:
-        r = requests.get('https://www.fragrantica.com/designers', headers=headers)
-        r.raise_for_status() 
-        soup = BeautifulSoup(r.content, 'html.parser')
-        
-        designers = soup.find_all('div', class_="designerlist")
 
-        for item in designers:
-            for link in item.find_all('a', href=True):
-                url = baseUrl + link['href']
-                url = url.replace('//designers', '/designers')
-                brand_name_tag = item.find('a')
-                brand_name = brand_name_tag.text.strip() if brand_name_tag else None
-                
-                # update the brands list
-                if url not in brandsList:
-                    image_tag = item.find('img')
-                    image_link = image_tag.get('src') if image_tag else None
-                    
-                    print('appending new brand....', item)
-                    Brand.objects.create(
-                        fragrantica_url=url,
-                        name = brand_name,
-                        logo = baseUrl + image_link if image_link else None,
-                        updated=timezone.now()
-                    )
-                    brandsList.append(url)
-                else:
-                    print(brand_name, 'is updated successfully')
-
-        
-        return Response({'brands': brandsList})
-    except requests.exceptions.RequestException as e:
-        return Response({'error': str(e)})
+    return Response({'brands': 'brandsList'})
 
 def extract_one_details(request, sku):
-    
     skuList = []
-    print('extrancting info from this url...', sku)
+    print('extracting info from this URL...', sku)
     try:
         r = requests.get(sku, headers=headers)
         r.raise_for_status() 
         soup = BeautifulSoup(r.content, 'html.parser')
-        
+
         # Create a Product
         product = Perfume.objects.create(
-                    fragrantica_url=sku,
-                    updated=datetime.now()
-                )
+            fragrantica_url=sku,
+            updated=datetime.now()
+        )
 
-
-        # retrieve basic product info
-        description_div = soup.find('div', {'itemprop': 'description'})
-        fragrance_info = extract_fragrance_info(description_div)
+        # Retrieve basic product info
+        fragrance_info = extract_fragrance_info(soup.find('div', {'itemprop': 'description'}))
         product.model = fragrance_info['fragrance_name']
         product.brand = fragrance_info['fragrance_brand']
-        product.year = fragrance_info['launch_year']
+        product.year = fragrance_info['launch_year'] if fragrance_info['launch_year'] else ''
+
+        # Get the nose
+        les_nez = []
+        designer_div = soup.find('div', class_="grid-x grid-padding-x grid-padding-y small-up-2 medium-up-2")
+        if designer_div:
+            for designer in designer_div.find_all('div', class_="cell"):
+                designer_name = designer.find('a').get_text()
+                les_nez.append(designer_name)
+        product.le_nez = les_nez
+
+        # Description and image
         product.description = fragrance_info['description']
         img_tag = soup.find('img', {'itemprop': 'image'})
         product.image = img_tag['src'] if img_tag and 'src' in img_tag.attrs else None
-        product.save()
 
-        # retrieve olfactory family
-        description_div = soup.find('div', {'itemprop': 'description'})
-        description_text = description_div.get_text() if description_div else ""
-        olfactory_family = search_olfactory_family(description_text)
-        product.olfactory_family = olfactory_family
-        product.save()
+        # Olfactory family
+        description_text = soup.find('div', {'itemprop': 'description'}).get_text() if soup.find('div', {'itemprop': 'description'}) else ""
+        product.olfactory_family = search_olfactory_family(description_text)
 
-        # retrieve the accords
+        # Accords
         accords_data = [
             {
                 'name': accord.text.strip(),
@@ -111,11 +80,8 @@ def extract_one_details(request, sku):
             for accord in soup.select('.accord-bar')
         ]
         product.accords = accords_data
-        product.save()
 
-        # get the olfactory notes
-        description_div = soup.find('div', {'itemprop': 'description'})
-        description_text = description_div.get_text() if description_div else ""
+        # Olfactory notes
         top_notes = extract_notes("Top notes", description_text)
         middle_notes = extract_notes("Middle notes", description_text)
         base_notes = extract_notes("Base notes", description_text)
@@ -123,7 +89,7 @@ def extract_one_details(request, sku):
         product.middle_notes = middle_notes
         product.base_notes = base_notes
 
-        # send a report if some notes are blank
+        # Send a report if some notes are blank
         if (top_notes and len(top_notes) == 0) or (middle_notes and len(middle_notes) == 0) or (base_notes and len(base_notes) == 0):
             print('Finder | Produto com defeito na importação da pirâmide olfactiva')
             send_mail(
@@ -136,29 +102,31 @@ def extract_one_details(request, sku):
 
         product.save()
 
-        # Convert the Perfume object to a dictionary
-        perfume_dict = model_to_dict(product)
+        # Extract similar and nez details
+        similar_urls = []
+        similar_div = soup.find('div', class_="strike-title", string="People who like this also like")
+        if similar_div:
+            carousel = similar_div.find_next('div', class_="carousel")
+            perfume_cells = carousel.find_all('div', class_="carousel-cell")
 
-        # store the messages in a list
-        messages = []
+            for cell in perfume_cells:
+                perfume_url = cell.find('a')['href']
+                full_url = f'https://www.fragrantica.com{perfume_url}'
+                similar_urls.append(full_url)
 
-        # brand list is updated message
-        messages.append('Brand list is updated')
-
-        # perfume created message
-        perfume_name = perfume_dict['model']
-        perfume_created_message = f'Perfume "{perfume_name}" was updated.'
-        messages.append(perfume_created_message)
-        print(perfume_created_message)
+            print(product.model)
+            product.similar = similar_urls
+            product.save()
+            # time.sleep(240)  # 600 seconds = 10mins
 
         if sku not in skuList:
-            perfume_name = perfume_dict['model']
+            perfume_name = product.model
             message = f'Perfume "{perfume_name}" was created.'
             print(message)
-            perfume_dict['creation_message'] = message
+            product.creation_message = message
 
-        return render(request, 'rest/perfumes.html', {'perfume_details': perfume_dict, 'messages': messages})
-        
+        return render(request, 'rest/perfumes.html', {'perfume_details': model_to_dict(product)})
+
     except requests.exceptions.RequestException as e:
         return Response({'error': str(e)})
     
@@ -250,11 +218,10 @@ def get_perfumes_brand(request):
                 sku = sku.replace('//perfume', '/perfume')
 
                 if any(sku == s for s in sku_list):
-                    print(f"{perfume_name} already in extracted.")
+                    print(f"{perfume_name} already extracted.")
                 else:
                     extract_one_details(request, sku)
-                    time.sleep(300)  # 600 seconds = 10mins
-            return Response({'perfumes': sku_list})
+                    time.sleep(240)  # 600 seconds = 10mins
         except requests.exceptions.RequestException as e:
             return Response({'error': str(e)})
         
@@ -279,3 +246,109 @@ def remove_empty():
     for perfume in Perfume.objects.all():
         if perfume.model == '':
             perfume.delete()
+
+def check_perfumes():
+    try:
+        r = requests.get('https://www.fragrantica.com/designers', headers=headers)
+        r.raise_for_status() 
+        soup = BeautifulSoup(r.content, 'html.parser')
+        
+        designers = soup.find_all('div', class_="designerlist")
+
+        brandList = []
+
+        for brand in Brand.objects.all():
+            brandList.append(brand.fragrantica_url)
+
+        for item in designers:
+            for link in item.find_all('a', href=True):
+                url = baseUrl + link['href']
+                url = url.replace('//designers', '/designers')
+                brand_name_tag = item.find('a')
+                perfumes = item.find('span', class_="badge").get_text()
+                brand_name = brand_name_tag.text.strip() if brand_name_tag else None
+                    
+                # update the brands list
+                if url not in brandList:
+                    image_tag = item.find('img')
+                    image_link = image_tag.get('src') if image_tag else None
+                    
+                    print('appending new brand....', item)
+                    Brand.objects.create(
+                        fragrantica_url=url,
+                        name = brand_name,
+                        perfumes = perfumes,
+                        logo = baseUrl + image_link if image_link else None,
+                        updated=timezone.now()
+                    )
+                    brandsList.append(url)
+                else:
+                    brand = Brand.objects.get(fragrantica_url=url, name=brand_name)
+                    # check if the brand has new perfumes
+                    if brand.perfumes != perfumes:
+                        print('new perfumes have been inserted into...', brand_name)
+                    else:
+                        brand.perfumes = perfumes
+                        brand.save()
+                    print(brand_name, 'is updated successfully')
+
+        
+        return Response({'brands': brandsList})
+    except requests.exceptions.RequestException as e:
+        return Response({'error': str(e)})
+
+def get_similar_and_nez():
+    for perfume in Perfume.objects.all().iterator(chunk_size=620):
+        print(perfume.model)
+        if perfume.similar == '':
+            try:
+                r = requests.get(perfume.fragrantica_url, headers=headers)
+                r.raise_for_status() 
+                soup = BeautifulSoup(r.content, 'html.parser')
+
+                les_nez = []
+
+                # Find the div containing perfumer information
+                perfumer_div = soup.select_one('div.cell.small-12')
+
+                if perfumer_div:
+                    # Find all perfumer names within the div
+                    perfumer_elements = perfumer_div.select('div.cell > a')
+
+                    for perfumer_element in perfumer_elements:
+                        perfumer_name = perfumer_element.text.strip()
+                        les_nez.append(perfumer_name)
+
+                    print(les_nez)
+                    perfume.le_nez = les_nez
+                    perfume.save()
+
+                # Move similar_urls inside the loop to reset it for each perfume
+                similar_urls = []
+
+                # Find the div containing similar perfumes
+                similar_div = soup.find('div', class_="strike-title", string="People who like this also like")
+
+                if similar_div:
+                    # Extract perfume URLs from the carousel
+                    carousel = similar_div.find_next('div', class_="carousel")
+                    perfume_cells = carousel.find_all('div', class_="carousel-cell")
+
+                    for cell in perfume_cells:
+                        perfume_url = cell.find('a')['href']
+                        full_url = f'https://www.fragrantica.com{perfume_url}'
+                        
+                        similar_urls.append(full_url)
+
+                    print(perfume.model)
+                    perfume.similar = similar_urls
+                    perfume.save()
+                    time.sleep(240)  # 600 seconds = 10mins
+
+            except Exception as e:
+                print('Failed:', str(e))
+                return None
+        else:
+            print('Perfume notes already updated')
+
+    return Response({'perfumes': Perfume.objects.all()})
