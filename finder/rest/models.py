@@ -12,6 +12,7 @@ class Perfume(models.Model):
     brand = models.CharField(max_length=300)
     model = models.CharField(max_length=300)
     year = models.CharField(max_length=4)
+    le_nez = models.CharField(max_length=3000, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     image = models.CharField(max_length=3000, null=True, blank=True)
     top_notes = models.CharField(max_length=3000, null=True, blank=True)
@@ -19,46 +20,27 @@ class Perfume(models.Model):
     base_notes = models.CharField(max_length=3000, null=True, blank=True)
     olfactory_family = models.CharField(max_length=3000, null=True, blank=True)
     accords = models.TextField(null=True, blank=True)
-
-    love = models.IntegerField(default=0)
-    like = models.IntegerField(default=0)
-    ok = models.IntegerField(default=0)
-    dislike = models.IntegerField(default=0)
-    hate = models.IntegerField(default=0)
-
-    winter = models.IntegerField(default=0)
-    spring = models.IntegerField(default=0)
-    summer = models.IntegerField(default=0)
-    fall = models.IntegerField(default=0)
-
-    day = models.IntegerField(default=0)
-    night = models.IntegerField(default=0)
-
-    rating = models.IntegerField(default=0)
-    rating_votes = models.IntegerField(default=0)
-
+    similar = models.TextField(null=True, blank=True)
     views = models.IntegerField(default=0)
 
-    EAN = models.IntegerField(default=0)
-
     fragrantica_url = models.CharField(max_length=3000, null=True, blank=True)
-    sephora_uk_url = models.CharField(max_length=3000, null=True, blank=True)
-    perfumesclub_uk_url = models.CharField(max_length=3000, null=True, blank=True)
 
     updated = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.model} from {self.brand} from {self.year} views and it was updated at {self.updated.strftime('%Y-%m-%d %H:%M:%S')}"
+        return f"{self.model} from {self.brand} was updated at {self.updated.strftime('%Y-%m-%d %H:%M:%S')}"
     
 class Brand(models.Model):
     name = models.CharField(max_length=3000, null=True, blank=True)
     logo = models.CharField(max_length=3000, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
+    popular = models.BooleanField(default=False, null=True, blank=True)
+    perfumes = models.IntegerField(default=0)
     fragrantica_url = models.CharField(max_length=3000, null=True, blank=True)
     updated = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.name} was updated at {self.updated.strftime('%Y-%m-%d %H:%M:%S')}"
+        return f"{self.name} has {self.perfumes} perfumes was updated at {self.updated.strftime('%Y-%m-%d %H:%M:%S')}"
     
 
 class PerfumeSize(models.Model):

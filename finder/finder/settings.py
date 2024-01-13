@@ -90,7 +90,7 @@ WSGI_APPLICATION = 'finder.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db2.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
@@ -148,6 +148,7 @@ CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 CELERY_BEAT_SCHEDULE = {
     'extract_brands_task': {
         'task': 'rest.tasks.extract_brands',
-        'schedule': crontab(minute=0, hour=0),  # Schedule to run daily at midnight
+        'schedule': crontab(minute=0),  # Schedule to run every hour at the beginning of the hour
+        # 'schedule': crontab(minute=0, hour=0),  # Schedule to run daily at midnight
     },
 }
