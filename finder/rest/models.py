@@ -20,23 +20,6 @@ class Perfume(models.Model):
     base_notes = models.CharField(max_length=3000, null=True, blank=True)
     olfactory_family = models.CharField(max_length=3000, null=True, blank=True)
     accords = models.TextField(null=True, blank=True)
-
-    love = models.IntegerField(default=0)
-    like = models.IntegerField(default=0)
-    ok = models.IntegerField(default=0)
-    dislike = models.IntegerField(default=0)
-    hate = models.IntegerField(default=0)
-
-    winter = models.IntegerField(default=0)
-    spring = models.IntegerField(default=0)
-    summer = models.IntegerField(default=0)
-    fall = models.IntegerField(default=0)
-
-    day = models.IntegerField(default=0)
-    night = models.IntegerField(default=0)
-
-    rating = models.IntegerField(default=0)
-    rating_votes = models.IntegerField(default=0)
     similar = models.TextField(null=True, blank=True)
     views = models.IntegerField(default=0)
 
