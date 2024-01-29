@@ -22,7 +22,6 @@ headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 brandsList = []
 brands = Brand.objects.all()
 
-
 @api_view(['GET'])
 def extract_brands(request):
     check_perfumes()
@@ -36,9 +35,22 @@ def extract_one_details(request, sku):
     skuList = []
     print('extracting info from this URL...', sku)
     try:
-        r = requests.get(sku, headers=headers)
+        # Use Selenium to load the page and wait for dynamic content
+        driver = webdriver.Chrome()  # You might need to adjust the path to your chromedriver
+        driver.get(sku)
+        
+        # Wait for the dynamic content to load, you might need to adjust the wait time
+        driver.implicitly_wait(10)
+
+        # Get the page source after JavaScript execution
+        page_source = driver.page_source
+
+        # Use BeautifulSoup to parse the loaded content
+        soup = BeautifulSoup(page_source, 'html.parser')
+
+        """ r = requests.get(sku, headers=headers)
         r.raise_for_status() 
-        soup = BeautifulSoup(r.content, 'html.parser')
+        soup = BeautifulSoup(r.content, 'html.parser') """
 
         # Create a Product
         product = Perfume.objects.create(
@@ -116,12 +128,13 @@ def extract_one_details(request, sku):
             product.similar = similar_urls
             product.save()
 
-        if sku not in skuList:
+        """ if sku not in skuList:
             perfume_name = product.model
             message = f'Perfume "{perfume_name}" was created.'
             print(message)
-            product.creation_message = message
+            product.creation_message = message """
 
+        driver.quit()  # Close the Selenium WebDriver
         return render(request, 'rest/perfumes.html', {'perfume_details': model_to_dict(product)})
 
     except requests.exceptions.RequestException as e:
@@ -136,11 +149,11 @@ def extract_notes(section, text):
             end_index = text.find(";", start_index)
             section_text = text[start_index:end_index].strip()
 
-            unwanted_words = ["Top notes", "Middle notes", "Base notes", "top notes", "middle notes", "base notes", "Notes", "notes", "are"]
+            unwanted_words = ["Top notes", "Middle notes", "Base notes", "top notes", "middle notes", "base notes", "Top note", "Middle note", "Base note", "Notes", "notes", "is", "are"]
             for word in unwanted_words:
                 section_text = section_text.replace(word, "").strip()
 
-            section_text = section_text.replace("and", ",")
+            section_text = section_text.replace(" and", ",")
 
             notes = [note.strip() for note in section_text.split("and")]
 
@@ -180,7 +193,7 @@ def extract_fragrance_info(description_div):
 
 def search_olfactory_family(description_text):
     olfactory_classification = {
-        "Amber", "Amber Floral", "Amber Fougere", "Amber Spicy", "Amber Vanilla", "Amber Woody",
+        "Amber ", "Amber Floral", "Amber Fougere", "Amber Spicy", "Amber Vanilla", "Amber Woody",
         "Aromatic Aquatic", "Aromatic Fougere", "Aromatic Fruity", "Aromatic Green", "Aromatic Spicy",
         "Chypre Floral", "Chypre Fruity",
         "Citrus Aromatic", "Citrus Gourmand",
@@ -222,7 +235,6 @@ def get_perfumes_brand(request):
         except requests.exceptions.RequestException as e:
             return Response({'error': str(e)})
         
-
 def remove_duplicates():
     
     duplicate_names = Perfume.objects.values('model').annotate(name_count=Count('model')).filter(name_count__gt=1)
@@ -237,7 +249,6 @@ def remove_duplicates():
         # Keep one instance and delete the rest
         first_perfume = duplicate_perfumes.first()
         duplicate_perfumes.exclude(pk=first_perfume.pk).delete()
-
 
 def remove_empty():
     for perfume in Perfume.objects.all():
